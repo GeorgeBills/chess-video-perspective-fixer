@@ -34,6 +34,10 @@ The original:
 Crop out and then flip the board, both vertically (to put black on the bottom)
 and horizontally (to put the H file on the left).
 
+```bash
+FILTER+="; [board] crop=w=${BOARD_WIDTH}:h=${BOARD_HEIGHT}:x=${BOARD_X}:y=${BOARD_Y}, vflip, hflip [board_flipped]"
+```
+
 ![Board cropped and flipped](board-cropped-flipped.png "Board cropped and flipped")
 
 Since we've flipped the board, we've also flipped all of the individual pieces.
@@ -41,9 +45,48 @@ We reflip each piece so it's right-side up. We could just do this by rank
 instead of by square, except for the coordinate notation (a - h, 1 - 8) visible in
 the top right of some of the individual squares.
 
+```bash
+# crop each square
+# flip all squares to fix the pieces being upside down
+for RANK in {0..7}; do
+    for FILE in {0..7}; do
+        # this x and y is relative to the board
+        SQ_X=$(($FILE * $SQ_WIDTH))
+        SQ_Y=$(($RANK * $SQ_HEIGHT))
+
+        SQ_NAME=$(sq_name $RANK $FILE)
+        
+        FILTER+="; [$SQ_NAME] crop=w=${SQ_WIDTH}:h=${SQ_HEIGHT}:x=${SQ_X}:y=${SQ_Y}, vflip, hflip [${SQ_NAME}_flipped]"
+    done
+done
+```
+
 ![E8 cropped and flipped](e8-cropped-flipped.png "E8 cropped and flipped")
 
 Then we overlay flipped pieces back on top of the original image.
+
+```bash
+# overlay all sections back into one video
+OVERLAY_ON="presenters"
+for RANK in {0..7}; do
+    for FILE in {0..7}; do
+        # this x and y is absolute, so we need to add the board x and y
+        SQ_X=$(($BOARD_X + $FILE * $SQ_WIDTH))
+        SQ_Y=$(($BOARD_Y + $RANK * $SQ_HEIGHT))
+        
+        SQ_NAME=$(sq_name $RANK $FILE)
+        
+        OVERLAY_OUT="${SQ_NAME}_overlayed"
+        FILTER+="; [$OVERLAY_ON][${SQ_NAME}_flipped] overlay=x=${SQ_X}:y=${SQ_Y} [${OVERLAY_OUT}]"
+
+        # each iteration we overlay on to the previous iteration
+        OVERLAY_ON=$OVERLAY_OUT
+    done
+done
+
+# send through the final overlayed output
+FILTER+="; [$OVERLAY_ON] copy"
+```
 
 Here's the result with just E8 overlayed.
 
